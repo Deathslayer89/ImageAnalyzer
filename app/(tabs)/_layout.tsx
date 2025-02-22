@@ -1,7 +1,14 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity } from 'react-native';
+import { supabase } from '../../lib/supabase';
 
 export default function TabLayout() {
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/auth/sign-in');
+  };
+
   return (
     <Tabs
       screenOptions={{
@@ -11,6 +18,11 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#888888',
         headerStyle: { backgroundColor: '#1a1a1a' },
         headerTintColor: '#ffffff',
+        headerRight: () => (
+          <TouchableOpacity onPress={signOut} style={{ marginRight: 15 }}>
+            <Ionicons name="log-out" size={24} color="#ffffff" />
+          </TouchableOpacity>
+        ),
       }}>
       <Tabs.Screen
         name="index"
