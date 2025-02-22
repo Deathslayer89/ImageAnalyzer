@@ -1,0 +1,31 @@
+{
+  "name": "bolt-expo-starter",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "EXPO_NO_TELEMETRY=1 expo start",
+    "build:web": "expo export --platform web",
+    "lint": "expo lint"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.22.0",
+    "@supabase/realtime-js": "^2.11.5",
+    "@supabase/supabase-js": "^2.48.1",
+    "base64-js": "^1.5.1",
+    "date-fns": "^4.1.0",
+    "expo": "^52.0.37",
+    "expo-camera": "^16.0.17",
+    "expo-file-system": "^18.0.11",
+    "expo-image-manipulator": "^13.0.6",
+    "expo-router": "^4.0.17",
+    "expo-secure-store": "^14.0.1",
+    "expo-status-bar": "^2.0.1",
+    "react-native-url-polyfill": "^2.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.3.12",
+    "typescript": "^5.3.3"
+  }
+}
