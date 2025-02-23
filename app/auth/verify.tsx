@@ -10,15 +10,13 @@ export default function VerifyScreen() {
       </Text>
       <TouchableOpacity 
         style={styles.button}
-        onPress={() => router.push("../sign-in")} // Fixed
+        onPress={() => router.replace("/auth/sign-in")} // Changed to absolute path with replace
       >
         <Text style={styles.buttonText}>Return to Sign In</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-// Styles remain unchanged
 
 const styles = StyleSheet.create({
   container: {

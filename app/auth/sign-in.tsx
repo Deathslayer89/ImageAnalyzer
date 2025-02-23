@@ -20,8 +20,14 @@ export default function SignInScreen() {
       });
 
       if (error) throw error;
-      
-      router.replace('/(tabs)'); // This is fine as it matches a group route
+
+      // Wait for session to be available before navigating
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.replace('/(tabs)'); // Navigate only after session is confirmed
+      } else {
+        throw new Error('Session not established after sign-in');
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -70,15 +76,13 @@ export default function SignInScreen() {
 
       <TouchableOpacity 
         style={styles.link}
-        onPress={() => router.push("../sign-up")} // Fixed
+        onPress={() => router.replace("/auth/sign-up")} // Changed to absolute path and replace
       >
         <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-// Styles remain unchanged
 
 const styles = StyleSheet.create({
   container: {

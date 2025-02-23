@@ -3,6 +3,7 @@ import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
 import React from 'react';
+
 export default function RootLayout() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -12,6 +13,13 @@ export default function RootLayout() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+
+      // Redirect based on session state
+      if (session) {
+        router.replace('/(tabs)'); // Redirect to tabs if signed in
+      } else {
+        router.replace('/auth/sign-up'); // Redirect to sign-up if not signed in
+      }
     });
 
     // Listen for auth state changes
@@ -22,7 +30,7 @@ export default function RootLayout() {
       if (session) {
         router.replace('/(tabs)'); // Redirect to tabs if signed in
       } else {
-        router.replace('/auth/sign-in'); // Redirect to sign-in if signed out
+        router.replace('/auth/sign-up'); // Redirect to sign-up if signed out
       }
     });
 
@@ -38,7 +46,7 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Auth routes */}
-        <Stack.Screen name="auth" /> {/* Changed from "auth/[...all]" */}
+        <Stack.Screen name="auth" />
         {/* Tabs routes */}
         <Stack.Screen name="(tabs)" />
         {/* Not found route */}
