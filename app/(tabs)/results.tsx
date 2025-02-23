@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image, TextInput } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { format, subHours } from 'date-fns';
+import { format, subHours, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 
 interface ImageAnalysisResult {
@@ -12,7 +12,7 @@ interface ImageAnalysisResult {
   status: 'success' | 'error' | 'processing';
 }
 
-type TimeFilter = '3h' | '24h' | '7d' | 'all';
+type TimeFilter = '3h' | '24h' | '7d' | 'all' | 'custom';
 
 export default function ResultsScreen() {
   const [results, setResults] = useState<ImageAnalysisResult[]>([]);
@@ -20,10 +20,14 @@ export default function ResultsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedResult, setSelectedResult] = useState<ImageAnalysisResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [customFilterApplied, setCustomFilterApplied] = useState(false);
 
   useEffect(() => {
     fetchResults();
-  }, [timeFilter]);
+  }, [timeFilter, customFilterApplied]);
 
   const fetchResults = async () => {
     setIsLoading(true);
@@ -33,9 +37,13 @@ export default function ResultsScreen() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (timeFilter !== 'all') {
+      if (timeFilter !== 'all' && timeFilter !== 'custom') {
         const hours = timeFilter === '3h' ? 3 : timeFilter === '24h' ? 24 : 168;
         query = query.gte('created_at', subHours(new Date(), hours).toISOString());
+      } else if (timeFilter === 'custom' && startDate && endDate) {
+        query = query
+          .gte('created_at', startDate)
+          .lte('created_at', endDate);
       }
 
       const { data, error } = await query.limit(50);
@@ -105,7 +113,7 @@ export default function ResultsScreen() {
     if (!selectedResult) return;
     const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
     if (currentIndex > 0) {
-      setSelectedResult(results[currentIndex - 1]); // Next is earlier in time (descending order)
+      setSelectedResult(results[currentIndex - 1]);
     }
   };
 
@@ -113,7 +121,15 @@ export default function ResultsScreen() {
     if (!selectedResult) return;
     const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
     if (currentIndex < results.length - 1) {
-      setSelectedResult(results[currentIndex + 1]); // Previous is later in time
+      setSelectedResult(results[currentIndex + 1]);
+    }
+  };
+
+  const applyCustomFilter = () => {
+    if (startDate && endDate) {
+      setTimeFilter('custom');
+      setCustomFilterApplied(true);
+      setFilterModalVisible(false);
     }
   };
 
@@ -171,6 +187,48 @@ export default function ResultsScreen() {
     </Modal>
   );
 
+  const renderFilterModal = () => (
+    <Modal
+      visible={filterModalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setFilterModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.filterCard}>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={() => setFilterModalVisible(false)}
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.filterTitle}>Custom Date Range</Text>
+          <TextInput
+            style={styles.dateInput}
+            placeholder="Start Date (YYYY-MM-DD HH:mm)"
+            placeholderTextColor="#666"
+            value={startDate}
+            onChangeText={(text) => setStartDate(text)}
+          />
+          <TextInput
+            style={styles.dateInput}
+            placeholder="End Date (YYYY-MM-DD HH:mm)"
+            placeholderTextColor="#666"
+            value={endDate}
+            onChangeText={(text) => setEndDate(text)}
+          />
+          <TouchableOpacity 
+            style={styles.applyButton}
+            onPress={applyCustomFilter}
+            disabled={!startDate || !endDate}
+          >
+            <Text style={styles.applyButtonText}>Apply Filter</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.filterContainer}>
@@ -181,11 +239,23 @@ export default function ResultsScreen() {
               styles.filterButton,
               timeFilter === filter && styles.filterButtonActive,
             ]}
-            onPress={() => setTimeFilter(filter)}
+            onPress={() => {
+              setTimeFilter(filter);
+              setCustomFilterApplied(false); // Reset custom filter when switching
+            }}
           >
             <Text style={styles.filterText}>{filter}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            timeFilter === 'custom' && styles.filterButtonActive,
+          ]}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <Ionicons name="filter" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -203,6 +273,7 @@ export default function ResultsScreen() {
         />
       )}
       {renderModal()}
+      {renderFilterModal()}
     </View>
   );
 }
@@ -222,6 +293,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     borderRadius: 6,
     backgroundColor: '#333',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterButtonActive: {
     backgroundColor: '#666',
@@ -323,5 +396,36 @@ const styles = StyleSheet.create({
   },
   toggleButtonDisabled: {
     opacity: 0.5,
+  },
+  filterCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  filterTitle: {
+    color: 'white',
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  dateInput: {
+    backgroundColor: '#333',
+    borderRadius: 5,
+    padding: 10,
+    color: 'white',
+    width: '100%',
+    marginBottom: 15,
+  },
+  applyButton: {
+    backgroundColor: '#2563eb',
+    padding: 10,
+    borderRadius: 5,
+    width: '100%',
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
