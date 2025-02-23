@@ -30,6 +30,17 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a687ad65-a539-4097-a882-e6b73f0e5b5c"
+      }
+    },
+    "android": {
+      "package": "com.deathslayer89.imageanalyzer"
     }
   }
 }
