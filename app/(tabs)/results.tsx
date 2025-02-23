@@ -13,21 +13,24 @@ interface ImageAnalysisResult {
 }
 
 type TimeFilter = '3h' | '24h' | '7d' | 'all' | 'custom';
+type SortOrder = 'latest' | 'oldest';
 
 export default function ResultsScreen() {
   const [results, setResults] = useState<ImageAnalysisResult[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('3h');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('latest');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedResult, setSelectedResult] = useState<ImageAnalysisResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [sortModalVisible, setSortModalVisible] = useState(false); // New state for sort dropdown
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [customFilterApplied, setCustomFilterApplied] = useState(false);
 
   useEffect(() => {
     fetchResults();
-  }, [timeFilter, customFilterApplied]);
+  }, [timeFilter, sortOrder, customFilterApplied]);
 
   const fetchResults = async () => {
     setIsLoading(true);
@@ -35,7 +38,7 @@ export default function ResultsScreen() {
       let query = supabase
         .from('image_analysis')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: sortOrder === 'oldest' });
 
       if (timeFilter !== 'all' && timeFilter !== 'custom') {
         const hours = timeFilter === '3h' ? 3 : timeFilter === '24h' ? 24 : 168;
@@ -229,6 +232,47 @@ export default function ResultsScreen() {
     </Modal>
   );
 
+  const renderSortModal = () => (
+    <Modal
+      visible={sortModalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setSortModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.sortCard}>
+          <TouchableOpacity 
+            style={styles.closeButton} 
+            onPress={() => setSortModalVisible(false)}
+          >
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.sortTitle}>Sort By</Text>
+          <TouchableOpacity
+            style={styles.sortOption}
+            onPress={() => {
+              setSortOrder('latest');
+              setSortModalVisible(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Latest</Text>
+            {sortOrder === 'latest' && <Ionicons name="checkmark" size={20} color="#fff" />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sortOption}
+            onPress={() => {
+              setSortOrder('oldest');
+              setSortModalVisible(false);
+            }}
+          >
+            <Text style={styles.sortOptionText}>Oldest</Text>
+            {sortOrder === 'oldest' && <Ionicons name="checkmark" size={20} color="#fff" />}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.filterContainer}>
@@ -241,7 +285,7 @@ export default function ResultsScreen() {
             ]}
             onPress={() => {
               setTimeFilter(filter);
-              setCustomFilterApplied(false); // Reset custom filter when switching
+              setCustomFilterApplied(false);
             }}
           >
             <Text style={styles.filterText}>{filter}</Text>
@@ -255,6 +299,13 @@ export default function ResultsScreen() {
           onPress={() => setFilterModalVisible(true)}
         >
           <Ionicons name="filter" size={20} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setSortModalVisible(true)}
+        >
+          <Ionicons name="swap-vertical" size={20} color="#fff" />
+          <Text style={styles.filterText}>{sortOrder}</Text>
         </TouchableOpacity>
       </View>
       {isLoading ? (
@@ -274,6 +325,7 @@ export default function ResultsScreen() {
       )}
       {renderModal()}
       {renderFilterModal()}
+      {renderSortModal()}
     </View>
   );
 }
@@ -287,14 +339,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 10,
     backgroundColor: '#1a1a1a',
+    flexWrap: 'wrap',
   },
   filterButton: {
+    flexDirection: 'row',
     padding: 8,
     marginHorizontal: 5,
     borderRadius: 6,
     backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 5,
   },
   filterButtonActive: {
     backgroundColor: '#666',
@@ -425,6 +480,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   applyButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  sortCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 20,
+    width: '60%',
+    alignItems: 'center',
+  },
+  sortTitle: {
+    color: 'white',
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  sortOptionText: {
     color: 'white',
     fontSize: 16,
   },
