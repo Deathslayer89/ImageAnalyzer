@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image, TextInput } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image, Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { format, subHours, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface ImageAnalysisResult {
   id: string;
@@ -23,9 +24,11 @@ export default function ResultsScreen() {
   const [selectedResult, setSelectedResult] = useState<ImageAnalysisResult | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [sortModalVisible, setSortModalVisible] = useState(false); // New state for sort dropdown
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
+  const [endDate, setEndDate] = useState(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [customFilterApplied, setCustomFilterApplied] = useState(false);
 
   useEffect(() => {
@@ -45,12 +48,12 @@ export default function ResultsScreen() {
         query = query.gte('created_at', subHours(new Date(), hours).toISOString());
       } else if (timeFilter === 'custom' && startDate && endDate) {
         query = query
-          .gte('created_at', startDate)
-          .lte('created_at', endDate);
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString());
       }
 
       const { data, error } = await query.limit(50);
-      
+
       if (error) throw error;
 
       setResults(data || []);
@@ -88,7 +91,7 @@ export default function ResultsScreen() {
   };
 
   const renderItem = ({ item }: { item: ImageAnalysisResult }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.resultItem}
       onPress={() => {
         setSelectedResult(item);
@@ -97,7 +100,7 @@ export default function ResultsScreen() {
     >
       <View style={styles.resultHeader}>
         <Text style={styles.timestamp}>
-          {format(new Date(item.created_at), 'MMM d, yyyy HH:mm')}
+          {format(new Date(item.created_at), 'MMM d, yyyy')}
         </Text>
         <View style={styles.statusContainer}>
           {getStatusIcon(item.status)}
@@ -146,24 +149,24 @@ export default function ResultsScreen() {
       <View style={styles.modalOverlay}>
         {selectedResult && (
           <View style={styles.card}>
-            <TouchableOpacity 
-              style={styles.closeButton} 
+            <TouchableOpacity
+              style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
               <Ionicons name="close" size={24} color="#fff" />
             </TouchableOpacity>
-            <Image 
-              source={{ uri: selectedResult.image_url }} 
-              style={styles.cardImage} 
+            <Image
+              source={{ uri: selectedResult.image_url }}
+              style={styles.cardImage}
               resizeMode="contain"
             />
             <Text style={styles.cardAnalysis}>
-              {selectedResult.status === 'error' 
-                ? 'Failed to analyze image. Please try again.' 
+              {selectedResult.status === 'error'
+                ? 'Failed to analyze image. Please try again.'
                 : selectedResult.analysis}
             </Text>
             <View style={styles.toggleButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handlePrevious}
                 disabled={results.findIndex((r) => r.id === selectedResult.id) === results.length - 1}
                 style={[
@@ -173,7 +176,7 @@ export default function ResultsScreen() {
               >
                 <Ionicons name="chevron-back" size={24} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleNext}
                 disabled={results.findIndex((r) => r.id === selectedResult.id) === 0}
                 style={[
@@ -199,28 +202,46 @@ export default function ResultsScreen() {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.filterCard}>
-          <TouchableOpacity 
-            style={styles.closeButton} 
+          <TouchableOpacity
+            style={styles.closeButton}
             onPress={() => setFilterModalVisible(false)}
           >
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.filterTitle}>Custom Date Range</Text>
-          <TextInput
-            style={styles.dateInput}
-            placeholder="Start Date (YYYY-MM-DD HH:mm)"
-            placeholderTextColor="#666"
-            value={startDate}
-            onChangeText={(text) => setStartDate(text)}
-          />
-          <TextInput
-            style={styles.dateInput}
-            placeholder="End Date (YYYY-MM-DD HH:mm)"
-            placeholderTextColor="#666"
-            value={endDate}
-            onChangeText={(text) => setEndDate(text)}
-          />
-          <TouchableOpacity 
+          <TouchableOpacity onPress={() => setShowStartPicker(true)}>
+            <Text style={styles.dateInput}>
+              {format(startDate, 'yyyy-MM-dd')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowEndPicker(true)}>
+            <Text style={styles.dateInput}>
+              {format(endDate, 'yyyy-MM-dd')}
+            </Text>
+          </TouchableOpacity>
+          {showStartPicker && (
+            <DateTimePicker
+              mode="date"
+              value={startDate}
+              display="spinner"
+              onChange={(event, date) => {
+                setShowStartPicker(Platform.OS === 'ios');
+                if (date) setStartDate(date);
+              }}
+            />
+          )}
+          {showEndPicker && (
+            <DateTimePicker
+              mode="date"
+              value={endDate}
+              display="spinner"
+              onChange={(event, date) => {
+                setShowEndPicker(Platform.OS === 'ios');
+                if (date) setEndDate(date);
+              }}
+            />
+          )}
+          <TouchableOpacity
             style={styles.applyButton}
             onPress={applyCustomFilter}
             disabled={!startDate || !endDate}
@@ -241,8 +262,8 @@ export default function ResultsScreen() {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.sortCard}>
-          <TouchableOpacity 
-            style={styles.closeButton} 
+          <TouchableOpacity
+            style={styles.closeButton}
             onPress={() => setSortModalVisible(false)}
           >
             <Ionicons name="close" size={24} color="#fff" />
@@ -471,6 +492,7 @@ const styles = StyleSheet.create({
     color: 'white',
     width: '100%',
     marginBottom: 15,
+    textAlign: 'center',
   },
   applyButton: {
     backgroundColor: '#2563eb',
