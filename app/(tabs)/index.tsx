@@ -1,95 +1,96 @@
-import { useEffect, useState, useRef } from "react"
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from "react-native"
-import { CameraView, CameraType, useCameraPermissions } from "expo-camera"
-import * as ImageManipulator from "expo-image-manipulator"
-import * as FileSystem from 'expo-file-system'
-import { toByteArray } from 'base64-js' // Corrected import
-import { supabase } from "../../lib/supabase"
-import { analyzeImage } from "../../lib/gemini"
-import { Ionicons } from "@expo/vector-icons"
-import { router } from 'expo-router'
+import { useEffect, useState, useRef } from "react";
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated } from "react-native";
+import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as FileSystem from 'expo-file-system';
+import { toByteArray } from 'base64-js';
+import { supabase } from "../../lib/supabase";
+import { analyzeImage } from "../../lib/gemini";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from 'expo-router';
 
 export default function CameraScreen() {
-  const [facing, setFacing] = useState<CameraType>("back")
-  const [permission, requestPermission] = useCameraPermissions()
-  const [isProcessing, setIsProcessing] = useState(false)
-  const cameraRef = useRef<CameraView | null>(null)
+  const [facing, setFacing] = useState<CameraType>("back");
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const cameraRef = useRef<CameraView | null>(null);
+  const [progress, setProgress] = useState(0); // Progress state for the loading bar
+  const progressAnim = useRef(new Animated.Value(0)).current; // Animated value for smooth transition
 
   useEffect(() => {
-    requestPermission()
-  }, [requestPermission])
+    requestPermission();
+  }, [requestPermission]);
+
+  useEffect(() => {
+    if (isProcessing) {
+      // Simulate progress animation from 0 to 100
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 3000, // Adjust duration as needed (e.g., based on typical processing time)
+        useNativeDriver: false,
+      }).start();
+    } else {
+      progressAnim.setValue(0); // Reset progress when not processing
+    }
+  }, [isProcessing]);
 
   const uploadImageToSupabase = async (uri: string) => {
     try {
-      // Read the file as base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
-      })
-
-      // Convert base64 to Uint8Array
-      const imageData = toByteArray(base64)
-
-      // Generate a unique filename
-      const filename = `image_${Date.now()}.jpg`
-      
-      // Upload to Supabase Storage
+      });
+      const imageData = toByteArray(base64);
+      const filename = `image_${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from('images')
         .upload(filename, imageData, {
           contentType: 'image/jpeg',
-          upsert: false
-        })
+          upsert: false,
+        });
 
-      if (uploadError) {
-        throw uploadError
-      }
+      if (uploadError) throw uploadError;
 
-      // Get the public URL of the uploaded image
       const { data: { publicUrl } } = supabase
         .storage
         .from('images')
-        .getPublicUrl(filename)
+        .getPublicUrl(filename);
 
-      return publicUrl
+      return publicUrl;
     } catch (error) {
-      console.error('Error uploading image:', error)
-      throw error
+      console.error('Error uploading image:', error);
+      throw error;
     }
-  }
+  };
 
   const takePicture = async () => {
     if (!permission?.granted || !cameraRef.current || isProcessing) {
-      console.log("Camera permission not granted or camera not ready or processing")
-      return
+      console.log("Camera permission not granted or camera not ready or processing");
+      return;
     }
 
     try {
-      setIsProcessing(true)
+      setIsProcessing(true);
 
-      // Take the picture
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.7,
-        base64: true // Enable base64 for Gemini processing
-      })
+        base64: true,
+      });
 
       if (!photo) return;
 
-      // Resize the image to a reasonable size
       const resizedPhoto = await ImageManipulator.manipulateAsync(
         photo.uri,
         [{ resize: { width: 1024 } }],
         { 
           compress: 0.7, 
           format: ImageManipulator.SaveFormat.JPEG,
-          base64: true 
+          base64: true,
         }
-      )
+      );
 
-      // Upload to Supabase Storage and get public URL
-      const publicUrl = await uploadImageToSupabase(resizedPhoto.uri)
+      const publicUrl = await uploadImageToSupabase(resizedPhoto.uri);
 
-      // Save initial record with processing status
       const { data: initialData, error: initialError } = await supabase
         .from("image_analysis")
         .insert([
@@ -100,15 +101,12 @@ export default function CameraScreen() {
             created_at: new Date().toISOString(),
           },
         ])
-        .select()
+        .select();
 
-      if (initialError) throw initialError
+      if (initialError) throw initialError;
 
-      // Analyze the image
       try {
-        const analysis = await analyzeImage(resizedPhoto.uri)
-        
-        // Update record with analysis results and success status
+        const analysis = await analyzeImage(resizedPhoto.uri);
         const { data, error } = await supabase
           .from("image_analysis")
           .update({
@@ -116,39 +114,35 @@ export default function CameraScreen() {
             status: "success",
           })
           .eq('id', initialData[0].id)
-          .select()
+          .select();
 
-        if (error) throw error
+        if (error) throw error;
 
-        // Navigate to results screen
-        router.push('/results')
+        router.push('/results');
       } catch (analysisError) {
-        // Update record with error status
         await supabase
           .from("image_analysis")
           .update({
             analysis: "Failed to analyze image",
             status: "error",
           })
-          .eq('id', initialData[0].id)
+          .eq('id', initialData[0].id);
 
-        throw analysisError
+        throw analysisError;
       }
-      
     } catch (error) {
-      console.error("Error processing image:", error)
-      // You might want to show an error message to the user here
+      console.error("Error processing image:", error);
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
   if (!permission) {
     return (
       <View style={styles.container}>
         <Text style={styles.text}>Requesting camera permission...</Text>
       </View>
-    )
+    );
   }
 
   if (!permission.granted) {
@@ -159,7 +153,7 @@ export default function CameraScreen() {
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
       </View>
-    )
+    );
   }
 
   return (
@@ -173,21 +167,37 @@ export default function CameraScreen() {
           <TouchableOpacity 
             style={[
               styles.captureButton,
-              isProcessing && styles.captureButtonDisabled
+              isProcessing && styles.captureButtonDisabled,
             ]} 
             onPress={takePicture}
             disabled={isProcessing}
           >
             <Ionicons 
-              name={isProcessing ? "hourglass" : "camera"} 
+              name="camera" // Always show camera icon, progress is handled separately
               size={32} 
               color="white" 
             />
           </TouchableOpacity>
         </View>
+        {isProcessing && (
+          <View style={styles.progressContainer}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+            <Text style={styles.progressText}>Processing...</Text>
+          </View>
+        )}
       </CameraView>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -232,4 +242,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
   },
-})
+  progressContainer: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.8)", // Toast-like semi-transparent background
+    padding: 10,
+    alignItems: "center",
+  },
+  progressBar: {
+    height: 5,
+    backgroundColor: "#2563eb", // Blue progress bar
+    borderRadius: 2,
+  },
+  progressText: {
+    color: "white",
+    fontSize: 12,
+    marginTop: 5,
+  },
+});
