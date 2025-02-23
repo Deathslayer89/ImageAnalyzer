@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { format, subHours } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 
-// Enhanced type for a single result item
 interface ImageAnalysisResult {
   id: string;
   created_at: string;
@@ -19,6 +18,8 @@ export default function ResultsScreen() {
   const [results, setResults] = useState<ImageAnalysisResult[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('3h');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedResult, setSelectedResult] = useState<ImageAnalysisResult | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     fetchResults();
@@ -39,9 +40,7 @@ export default function ResultsScreen() {
 
       const { data, error } = await query.limit(50);
       
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setResults(data || []);
     } catch (error) {
@@ -78,7 +77,13 @@ export default function ResultsScreen() {
   };
 
   const renderItem = ({ item }: { item: ImageAnalysisResult }) => (
-    <View style={styles.resultItem}>
+    <TouchableOpacity 
+      style={styles.resultItem}
+      onPress={() => {
+        setSelectedResult(item);
+        setModalVisible(true);
+      }}
+    >
       <View style={styles.resultHeader}>
         <Text style={styles.timestamp}>
           {format(new Date(item.created_at), 'MMM d, yyyy HH:mm')}
@@ -93,7 +98,77 @@ export default function ResultsScreen() {
       <Text style={styles.analysis}>
         {item.status === 'error' ? 'Failed to analyze image. Please try again.' : item.analysis}
       </Text>
-    </View>
+    </TouchableOpacity>
+  );
+
+  const handleNext = () => {
+    if (!selectedResult) return;
+    const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
+    if (currentIndex > 0) {
+      setSelectedResult(results[currentIndex - 1]); // Next is earlier in time (descending order)
+    }
+  };
+
+  const handlePrevious = () => {
+    if (!selectedResult) return;
+    const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
+    if (currentIndex < results.length - 1) {
+      setSelectedResult(results[currentIndex + 1]); // Previous is later in time
+    }
+  };
+
+  const renderModal = () => (
+    <Modal
+      visible={modalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        {selectedResult && (
+          <View style={styles.card}>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => setModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Image 
+              source={{ uri: selectedResult.image_url }} 
+              style={styles.cardImage} 
+              resizeMode="contain"
+            />
+            <Text style={styles.cardAnalysis}>
+              {selectedResult.status === 'error' 
+                ? 'Failed to analyze image. Please try again.' 
+                : selectedResult.analysis}
+            </Text>
+            <View style={styles.toggleButtons}>
+              <TouchableOpacity 
+                onPress={handlePrevious}
+                disabled={results.findIndex((r) => r.id === selectedResult.id) === results.length - 1}
+                style={[
+                  styles.toggleButton,
+                  results.findIndex((r) => r.id === selectedResult.id) === results.length - 1 && styles.toggleButtonDisabled,
+                ]}
+              >
+                <Ionicons name="chevron-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={handleNext}
+                disabled={results.findIndex((r) => r.id === selectedResult.id) === 0}
+                style={[
+                  styles.toggleButton,
+                  results.findIndex((r) => r.id === selectedResult.id) === 0 && styles.toggleButtonDisabled,
+                ]}
+              >
+                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
+    </Modal>
   );
 
   return (
@@ -127,6 +202,7 @@ export default function ResultsScreen() {
           refreshing={isLoading}
         />
       )}
+      {renderModal()}
     </View>
   );
 }
@@ -202,5 +278,50 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#666',
     marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  card: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 10,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  cardImage: {
+    width: '100%',
+    height: 300,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  cardAnalysis: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  toggleButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '60%',
+  },
+  toggleButton: {
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 5,
+  },
+  toggleButtonDisabled: {
+    opacity: 0.5,
   },
 });
