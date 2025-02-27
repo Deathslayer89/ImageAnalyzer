@@ -3,6 +3,8 @@ node_modules/
 
 .env
 
+android/
+
 # expo
 .expo/
 dist/
