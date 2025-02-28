@@ -1,6 +1,12 @@
+import Constants from 'expo-constants';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
+// Access the configuration safely
+const GeminiApiKey = Constants.expoConfig?.extra?.GeminiApiKey || 
+                     process.env.EXPO_PUBLIC_GEMINI_API_KEY || 
+                     'default-dev-key';
+
+const genAI = new GoogleGenerativeAI(GeminiApiKey);
 
 export async function analyzeImage(imageUri: string) {
   try {
