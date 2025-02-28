@@ -14,8 +14,8 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
   const cameraRef = useRef<CameraView | null>(null);
-  const [progress, setProgress] = useState(0); // Progress state for the loading bar
-  const progressAnim = useRef(new Animated.Value(0)).current; // Animated value for smooth transition
+  const [progress, setProgress] = useState(0);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     requestPermission();
@@ -23,14 +23,13 @@ export default function CameraScreen() {
 
   useEffect(() => {
     if (isProcessing) {
-      // Simulate progress animation from 0 to 100
       Animated.timing(progressAnim, {
         toValue: 1,
-        duration: 3000, // Adjust duration as needed (e.g., based on typical processing time)
+        duration: 3000,
         useNativeDriver: false,
       }).start();
     } else {
-      progressAnim.setValue(0); // Reset progress when not processing
+      progressAnim.setValue(0);
     }
   }, [isProcessing]);
 
@@ -137,6 +136,11 @@ export default function CameraScreen() {
     }
   };
 
+  // New function to toggle camera facing
+  const toggleCameraFacing = () => {
+    setFacing((current) => (current === "back" ? "front" : "back"));
+  };
+
   if (!permission) {
     return (
       <View style={styles.container}>
@@ -164,6 +168,7 @@ export default function CameraScreen() {
         ref={cameraRef}
       >
         <View style={styles.buttonContainer}>
+          {/* Capture Button */}
           <TouchableOpacity 
             style={[
               styles.captureButton,
@@ -173,9 +178,22 @@ export default function CameraScreen() {
             disabled={isProcessing}
           >
             <Ionicons 
-              name="camera" // Always show camera icon, progress is handled separately
+              name="camera"
               size={32} 
               color="white" 
+            />
+          </TouchableOpacity>
+
+          {/* Flip Camera Button */}
+          <TouchableOpacity
+            style={styles.flipButton}
+            onPress={toggleCameraFacing}
+            disabled={isProcessing}
+          >
+            <Ionicons
+              name="camera-reverse"
+              size={32}
+              color="white"
             />
           </TouchableOpacity>
         </View>
@@ -211,7 +229,10 @@ const styles = StyleSheet.create({
   buttonContainer: {
     position: "absolute",
     bottom: 20,
-    alignSelf: "center",
+    flexDirection: "row", // Changed to row to place buttons side by side
+    justifyContent: "center",
+    width: "100%",
+    gap: 20, // Added spacing between buttons
   },
   captureButton: {
     width: 70,
@@ -224,6 +245,14 @@ const styles = StyleSheet.create({
   captureButtonDisabled: {
     backgroundColor: "#666",
     opacity: 0.7,
+  },
+  flipButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
   },
   text: {
     color: "white",
@@ -246,13 +275,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     width: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.8)", // Toast-like semi-transparent background
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     padding: 10,
     alignItems: "center",
   },
   progressBar: {
     height: 5,
-    backgroundColor: "#2563eb", // Blue progress bar
+    backgroundColor: "#2563eb",
     borderRadius: 2,
   },
   progressText: {
