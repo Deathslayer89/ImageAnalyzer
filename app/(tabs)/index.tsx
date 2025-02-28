@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated } from "re
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from "expo-image-picker"; // New import
 import { toByteArray } from 'base64-js';
 import { supabase } from "../../lib/supabase";
 import { analyzeImage } from "../../lib/gemini";
@@ -62,24 +63,17 @@ export default function CameraScreen() {
     }
   };
 
-  const takePicture = async () => {
-    if (!permission?.granted || !cameraRef.current || isProcessing) {
-      console.log("Camera permission not granted or camera not ready or processing");
+  const processImage = async (uri: string) => {
+    if (isProcessing) {
+      console.log("Already processing an image");
       return;
     }
 
     try {
       setIsProcessing(true);
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!photo) return;
-
       const resizedPhoto = await ImageManipulator.manipulateAsync(
-        photo.uri,
+        uri,
         [{ resize: { width: 1024 } }],
         { 
           compress: 0.7, 
@@ -136,7 +130,39 @@ export default function CameraScreen() {
     }
   };
 
-  // New function to toggle camera facing
+  const takePicture = async () => {
+    if (!permission?.granted || !cameraRef.current) {
+      console.log("Camera permission not granted or camera not ready");
+      return;
+    }
+    const photo = await cameraRef.current.takePictureAsync({
+      quality: 0.7,
+      base64: true,
+    });
+    if (photo) {
+      await processImage(photo.uri);
+    }
+  };
+
+  const pickImage = async () => {
+    // Request media library permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      console.log("Media library permission not granted");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      await processImage(result.assets[0].uri);
+    }
+  };
+
   const toggleCameraFacing = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
   };
@@ -186,12 +212,31 @@ export default function CameraScreen() {
 
           {/* Flip Camera Button */}
           <TouchableOpacity
-            style={styles.flipButton}
+            style={[
+              styles.flipButton,
+              isProcessing && styles.captureButtonDisabled,
+            ]}
             onPress={toggleCameraFacing}
             disabled={isProcessing}
           >
             <Ionicons
               name="camera-reverse"
+              size={32}
+              color="white"
+            />
+          </TouchableOpacity>
+
+          {/* Upload Image Button */}
+          <TouchableOpacity
+            style={[
+              styles.uploadButton,
+              isProcessing && styles.captureButtonDisabled,
+            ]}
+            onPress={pickImage}
+            disabled={isProcessing}
+          >
+            <Ionicons
+              name="image"
               size={32}
               color="white"
             />
@@ -229,10 +274,10 @@ const styles = StyleSheet.create({
   buttonContainer: {
     position: "absolute",
     bottom: 20,
-    flexDirection: "row", // Changed to row to place buttons side by side
+    flexDirection: "row",
     justifyContent: "center",
     width: "100%",
-    gap: 20, // Added spacing between buttons
+    gap: 20,
   },
   captureButton: {
     width: 70,
@@ -247,6 +292,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   flipButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
