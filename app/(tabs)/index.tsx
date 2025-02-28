@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated } from "re
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from 'expo-file-system';
-import * as ImagePicker from "expo-image-picker"; // New import
+import * as ImagePicker from "expo-image-picker";
+import { Audio } from "expo-av"; // New import for audio
 import { toByteArray } from 'base64-js';
 import { supabase } from "../../lib/supabase";
 import { analyzeImage } from "../../lib/gemini";
@@ -14,12 +15,22 @@ export default function CameraScreen() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isListening, setIsListening] = useState(false); // New state for voice listening
   const cameraRef = useRef<CameraView | null>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const [progress, setProgress] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     requestPermission();
+    // Request audio permissions
+    (async () => {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+    })();
   }, [requestPermission]);
 
   useEffect(() => {
@@ -131,26 +142,17 @@ export default function CameraScreen() {
   };
 
   const takePicture = async () => {
-    if (!permission?.granted || !cameraRef.current) {
-      console.log("Camera permission not granted or camera not ready");
-      return;
-    }
+    if (!permission?.granted || !cameraRef.current) return;
     const photo = await cameraRef.current.takePictureAsync({
       quality: 0.7,
       base64: true,
     });
-    if (photo) {
-      await processImage(photo.uri);
-    }
+    if (photo) await processImage(photo.uri);
   };
 
   const pickImage = async () => {
-    // Request media library permissions
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      console.log("Media library permission not granted");
-      return;
-    }
+    if (status !== "granted") return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -165,6 +167,63 @@ export default function CameraScreen() {
 
   const toggleCameraFacing = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
+  };
+
+  // Voice command handling
+  const startListening = async () => {
+    if (isProcessing || isListening) return;
+
+    try {
+      setIsListening(true);
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.startAsync();
+      recordingRef.current = recording;
+
+      // Stop after 3 seconds and process
+      setTimeout(async () => {
+        await stopListening();
+      }, 3000);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = async () => {
+    if (!recordingRef.current) return;
+
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      // Basic keyword detection (simplified for quick implementation)
+      // In a real app, you'd send this to a speech-to-text API (e.g., Google Cloud Speech)
+      // For simplicity, we'll simulate with a mock check
+      const mockCommand = uri ? await mockSpeechToText(uri) : "";
+      handleVoiceCommand(mockCommand);
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+    } finally {
+      setIsListening(false);
+    }
+  };
+
+  // Mock speech-to-text (replace with real API for production)
+  const mockSpeechToText = async (uri: string) => {
+    // Simulate recognition (in reality, send to a server or use a local library)
+    console.log("Processing audio from:", uri);
+    return Math.random() > 0.5 ? "take photo" : "flip camera"; // Random mock for demo
+  };
+
+  const handleVoiceCommand = (command: string) => {
+    console.log("Voice command detected:", command);
+    if (command.toLowerCase().includes("take photo")) {
+      takePicture();
+    } else if (command.toLowerCase().includes("flip camera")) {
+      toggleCameraFacing();
+    }
   };
 
   if (!permission) {
@@ -194,7 +253,6 @@ export default function CameraScreen() {
         ref={cameraRef}
       >
         <View style={styles.buttonContainer}>
-          {/* Capture Button */}
           <TouchableOpacity 
             style={[
               styles.captureButton,
@@ -203,14 +261,9 @@ export default function CameraScreen() {
             onPress={takePicture}
             disabled={isProcessing}
           >
-            <Ionicons 
-              name="camera"
-              size={32} 
-              color="white" 
-            />
+            <Ionicons name="camera" size={32} color="white" />
           </TouchableOpacity>
 
-          {/* Flip Camera Button */}
           <TouchableOpacity
             style={[
               styles.flipButton,
@@ -219,14 +272,9 @@ export default function CameraScreen() {
             onPress={toggleCameraFacing}
             disabled={isProcessing}
           >
-            <Ionicons
-              name="camera-reverse"
-              size={32}
-              color="white"
-            />
+            <Ionicons name="camera-reverse" size={32} color="white" />
           </TouchableOpacity>
 
-          {/* Upload Image Button */}
           <TouchableOpacity
             style={[
               styles.uploadButton,
@@ -235,8 +283,20 @@ export default function CameraScreen() {
             onPress={pickImage}
             disabled={isProcessing}
           >
+            <Ionicons name="image" size={32} color="white" />
+          </TouchableOpacity>
+
+          {/* Voice Command Button */}
+          <TouchableOpacity
+            style={[
+              styles.voiceButton,
+              (isProcessing || isListening) && styles.captureButtonDisabled,
+            ]}
+            onPress={startListening}
+            disabled={isProcessing || isListening}
+          >
             <Ionicons
-              name="image"
+              name={isListening ? "mic" : "mic-off"}
               size={32}
               color="white"
             />
@@ -256,6 +316,11 @@ export default function CameraScreen() {
               ]}
             />
             <Text style={styles.progressText}>Processing...</Text>
+          </View>
+        )}
+        {isListening && (
+          <View style={styles.listeningContainer}>
+            <Text style={styles.listeningText}>Listening...</Text>
           </View>
         )}
       </CameraView>
@@ -307,6 +372,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  voiceButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#333",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   text: {
     color: "white",
     fontSize: 16,
@@ -341,5 +414,18 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 12,
     marginTop: 5,
+  },
+  listeningContainer: {
+    position: "absolute",
+    top: 20,
+    width: "100%",
+    alignItems: "center",
+  },
+  listeningText: {
+    color: "white",
+    fontSize: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    padding: 10,
+    borderRadius: 5,
   },
 });
