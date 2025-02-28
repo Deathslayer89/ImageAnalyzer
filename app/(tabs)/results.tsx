@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Image, Platform } from 'react-native';
+import { format, subHours } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import { format, subHours, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 interface ImageAnalysisResult {
   id: string;
@@ -30,6 +32,7 @@ export default function ResultsScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [customFilterApplied, setCustomFilterApplied] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
 
   useEffect(() => {
     fetchResults();
@@ -53,9 +56,7 @@ export default function ResultsScreen() {
       }
 
       const { data, error } = await query.limit(50);
-
       if (error) throw error;
-
       setResults(data || []);
     } catch (error) {
       console.error('Error fetching results:', error);
@@ -66,27 +67,19 @@ export default function ResultsScreen() {
 
   const getStatusIcon = (status: ImageAnalysisResult['status']) => {
     switch (status) {
-      case 'success':
-        return <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />;
-      case 'error':
-        return <Ionicons name="alert-circle" size={20} color="#F44336" />;
-      case 'processing':
-        return <Ionicons name="time" size={20} color="#FFC107" />;
-      default:
-        return null;
+      case 'success': return <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />;
+      case 'error': return <Ionicons name="alert-circle" size={20} color="#F44336" />;
+      case 'processing': return <Ionicons name="time" size={20} color="#FFC107" />;
+      default: return null;
     }
   };
 
   const getStatusText = (status: ImageAnalysisResult['status']) => {
     switch (status) {
-      case 'success':
-        return 'Analysis completed';
-      case 'error':
-        return 'Analysis failed';
-      case 'processing':
-        return 'Processing...';
-      default:
-        return '';
+      case 'success': return 'Analysis completed';
+      case 'error': return 'Analysis failed';
+      case 'processing': return 'Processing...';
+      default: return '';
     }
   };
 
@@ -116,26 +109,27 @@ export default function ResultsScreen() {
   );
 
   const handleNext = () => {
-    if (!selectedResult) return;
+    if (!selectedResult || !results.length) return;
     const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
-    if (currentIndex > 0) {
-      setSelectedResult(results[currentIndex - 1]);
-    }
+    if (currentIndex > 0) setSelectedResult(results[currentIndex - 1]);
   };
 
   const handlePrevious = () => {
-    if (!selectedResult) return;
+    if (!selectedResult || !results.length) return;
     const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
-    if (currentIndex < results.length - 1) {
-      setSelectedResult(results[currentIndex + 1]);
-    }
+    if (currentIndex < results.length - 1) setSelectedResult(results[currentIndex + 1]);
   };
 
-  const applyCustomFilter = () => {
-    if (startDate && endDate) {
-      setTimeFilter('custom');
-      setCustomFilterApplied(true);
-      setFilterModalVisible(false);
+  const shareCard = async () => {
+    if (!viewShotRef.current) return;
+    try {
+      const uri = await viewShotRef.current.capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share Analysis',
+      });
+    } catch (error) {
+      console.error('Error sharing card:', error);
     }
   };
 
@@ -148,46 +142,48 @@ export default function ResultsScreen() {
     >
       <View style={styles.modalOverlay}>
         {selectedResult && (
-          <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Image
-              source={{ uri: selectedResult.image_url }}
-              style={styles.cardImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.cardAnalysis}>
-              {selectedResult.status === 'error'
-                ? 'Failed to analyze image. Please try again.'
-                : selectedResult.analysis}
-            </Text>
-            <View style={styles.toggleButtons}>
+          <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }}>
+            <View style={styles.card}>
               <TouchableOpacity
-                onPress={handlePrevious}
-                disabled={results.findIndex((r) => r.id === selectedResult.id) === results.length - 1}
-                style={[
-                  styles.toggleButton,
-                  results.findIndex((r) => r.id === selectedResult.id) === results.length - 1 && styles.toggleButtonDisabled,
-                ]}
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
               >
-                <Ionicons name="chevron-back" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleNext}
-                disabled={results.findIndex((r) => r.id === selectedResult.id) === 0}
-                style={[
-                  styles.toggleButton,
-                  results.findIndex((r) => r.id === selectedResult.id) === 0 && styles.toggleButtonDisabled,
-                ]}
-              >
-                <Ionicons name="chevron-forward" size={24} color="#fff" />
+              <View style={styles.cardContent}>
+                <TouchableOpacity
+                  style={styles.leftButton}
+                  onPress={handlePrevious}
+                  disabled={!results.length || results.findIndex((r) => r.id === selectedResult.id) === results.length - 1}
+                >
+                  <Ionicons name="chevron-back" size={24} color="#fff" />
+                </TouchableOpacity>
+                <View style={styles.centerContent}>
+                  <Image
+                    source={{ uri: selectedResult.image_url }}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.cardAnalysis}>
+                    {selectedResult.status === 'error'
+                      ? 'Failed to analyze image. Please try again.'
+                      : selectedResult.analysis}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.rightButton}
+                  onPress={handleNext}
+                  disabled={!results.length || results.findIndex((r) => r.id === selectedResult.id) === 0}
+                >
+                  <Ionicons name="chevron-forward" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.shareButton} onPress={shareCard}>
+                <Ionicons name="share-social" size={24} color="#fff" />
+                <Text style={styles.shareButtonText}>Share</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ViewShot>
         )}
       </View>
     </Modal>
@@ -210,14 +206,10 @@ export default function ResultsScreen() {
           </TouchableOpacity>
           <Text style={styles.filterTitle}>Custom Date Range</Text>
           <TouchableOpacity onPress={() => setShowStartPicker(true)}>
-            <Text style={styles.dateInput}>
-              {format(startDate, 'yyyy-MM-dd')}
-            </Text>
+            <Text style={styles.dateInput}>{format(startDate, 'yyyy-MM-dd')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowEndPicker(true)}>
-            <Text style={styles.dateInput}>
-              {format(endDate, 'yyyy-MM-dd')}
-            </Text>
+            <Text style={styles.dateInput}>{format(endDate, 'yyyy-MM-dd')}</Text>
           </TouchableOpacity>
           {showStartPicker && (
             <DateTimePicker
@@ -243,7 +235,13 @@ export default function ResultsScreen() {
           )}
           <TouchableOpacity
             style={styles.applyButton}
-            onPress={applyCustomFilter}
+            onPress={() => {
+              if (startDate && endDate) {
+                setTimeFilter('custom');
+                setCustomFilterApplied(true);
+                setFilterModalVisible(false);
+              }
+            }}
             disabled={!startDate || !endDate}
           >
             <Text style={styles.applyButtonText}>Apply Filter</Text>
@@ -271,20 +269,14 @@ export default function ResultsScreen() {
           <Text style={styles.sortTitle}>Sort By</Text>
           <TouchableOpacity
             style={styles.sortOption}
-            onPress={() => {
-              setSortOrder('latest');
-              setSortModalVisible(false);
-            }}
+            onPress={() => { setSortOrder('latest'); setSortModalVisible(false); }}
           >
             <Text style={styles.sortOptionText}>Latest</Text>
             {sortOrder === 'latest' && <Ionicons name="checkmark" size={20} color="#fff" />}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.sortOption}
-            onPress={() => {
-              setSortOrder('oldest');
-              setSortModalVisible(false);
-            }}
+            onPress={() => { setSortOrder('oldest'); setSortModalVisible(false); }}
           >
             <Text style={styles.sortOptionText}>Oldest</Text>
             {sortOrder === 'oldest' && <Ionicons name="checkmark" size={20} color="#fff" />}
@@ -300,23 +292,14 @@ export default function ResultsScreen() {
         {(['3h', '24h', '7d', 'all'] as TimeFilter[]).map((filter) => (
           <TouchableOpacity
             key={filter}
-            style={[
-              styles.filterButton,
-              timeFilter === filter && styles.filterButtonActive,
-            ]}
-            onPress={() => {
-              setTimeFilter(filter);
-              setCustomFilterApplied(false);
-            }}
+            style={[styles.filterButton, timeFilter === filter && styles.filterButtonActive]}
+            onPress={() => { setTimeFilter(filter); setCustomFilterApplied(false); }}
           >
             <Text style={styles.filterText}>{filter}</Text>
           </TouchableOpacity>
         ))}
         <TouchableOpacity
-          style={[
-            styles.filterButton,
-            timeFilter === 'custom' && styles.filterButtonActive,
-          ]}
+          style={[styles.filterButton, timeFilter === 'custom' && styles.filterButtonActive]}
           onPress={() => setFilterModalVisible(true)}
         >
           <Ionicons name="filter" size={20} color="#fff" />
@@ -406,15 +389,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
-  statussuccess: {
-    color: '#4CAF50',
-  },
-  statuserror: {
-    color: '#F44336',
-  },
-  statusprocessing: {
-    color: '#FFC107',
-  },
+  statussuccess: { color: '#4CAF50' },
+  statuserror: { color: '#F44336' },
+  statusprocessing: { color: '#FFC107' },
   analysis: {
     color: 'white',
     fontSize: 16,
@@ -441,12 +418,34 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '80%',
     alignItems: 'center',
-    position: 'relative',
   },
   closeButton: {
     position: 'absolute',
     top: 10,
     right: 10,
+    zIndex: 1,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+  },
+  leftButton: {
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 5,
+  },
+  rightButton: {
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 5,
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 10,
   },
   cardImage: {
     width: '100%',
@@ -458,20 +457,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 20,
   },
-  toggleButtons: {
+  shareButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '60%',
-  },
-  toggleButton: {
     padding: 10,
-    backgroundColor: '#333',
+    backgroundColor: '#2563eb',
     borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 20,
   },
-  toggleButtonDisabled: {
-    opacity: 0.5,
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 5,
   },
   filterCard: {
     backgroundColor: '#1a1a1a',

@@ -1,74 +1,75 @@
-// Update app/(tabs)/_layout.tsx to add proper error handling
-
 import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity, Text, View, StyleSheet, Alert } from 'react-native';
+import { TouchableOpacity, Text, View, Alert, StyleSheet } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useEffect, useState } from 'react';
-import Constants from 'expo-constants';
 
 export default function TabLayout() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  // Debug environment variables in development mode
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('TabLayout - Environment variables check:');
-      console.log('Supabase URL:', Constants.expoConfig?.extra?.SupabaseURL ? 'Defined' : 'Missing');
-      console.log('Supabase Anon Key:', Constants.expoConfig?.extra?.SupabaseAnonKey ? 'Defined' : 'Missing');
-      console.log('Gemini API Key:', Constants.expoConfig?.extra?.GeminiApiKey ? 'Defined' : 'Missing');
-    }
-  }, []);
+  // Check initial session
+  const initializeSession = async () => {
+    try {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error) throw new Error(`Session fetch error: ${error.message}`);
 
-  useEffect(() => {
-    async function initializeAuth() {
-      try {
-        // Check initial session
-        const { data, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-        
-        setSession(data.session);
-        setLoading(false);
-
-        if (!data.session) {
-          console.log('No session found, redirecting to sign-up');
-          router.replace('/auth/sign-up');
-        }
-      } catch (err: any) {
-        console.error('Error in TabLayout:', err);
-        setError(err.message || 'Connection error');
-        setLoading(false);
-        
-        // Show an alert with more details in development
-        if (__DEV__) {
-          Alert.alert('Auth Error', `Error details: ${err.message || 'Unknown error'}`);
-        } else {
-          Alert.alert('Connection Error', 'Failed to connect to our services. Please try again.');
-        }
-      }
-    }
-
-    initializeAuth();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      setIsAuthenticated(!!session);
       if (!session) {
-        console.log('Session lost, redirecting to sign-up');
+        console.log('No initial session, redirecting to auth');
+        router.replace('/auth/sign-up');
+      }
+    } catch (err: any) {
+      console.error('Initialization failed:', err.message);
+      setAuthError(err.message || 'Failed to initialize session');
+      setIsAuthenticated(false);
+    }
+  };
+
+  // Handle auth state changes
+  const setupAuthListener = () => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const isLoggedIn = !!session;
+      setIsAuthenticated(isLoggedIn);
+      console.log(
+        `Auth event: ${event}, Session: ${isLoggedIn ? 'Active' : 'Inactive'}`
+      );
+      if (!isLoggedIn) {
         router.replace('/auth/sign-up');
       }
     });
+    return () => {
+      console.log('Unsubscribing from auth listener');
+      subscription.unsubscribe();
+    };
+  };
 
-    // Cleanup subscription on unmount
-    return () => subscription.unsubscribe();
+  useEffect(() => {
+    initializeSession();
+    const cleanup = setupAuthListener();
+    return cleanup;
   }, []);
 
-  if (loading) {
+  // Sign out handler
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw new Error(`Sign out error: ${error.message}`);
+      console.log('Signed out successfully');
+      router.replace('/auth/sign-up');
+    } catch (err: any) {
+      console.error('Sign out failed:', err);
+      Alert.alert('Sign Out Error', 'Unable to sign out. Please try again.');
+    }
+  };
+
+  // Render based on auth state
+  if (isAuthenticated === null) {
     return (
       <View style={styles.container}>
         <Text style={styles.loadingText}>Loading...</Text>
@@ -76,12 +77,12 @@ export default function TabLayout() {
     );
   }
 
-  if (error) {
+  if (authError) {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Something went wrong</Text>
-        <Text style={styles.errorSubtext}>{error}</Text>
-        <TouchableOpacity 
+        <Text style={styles.errorSubtext}>{authError}</Text>
+        <TouchableOpacity
           style={styles.retryButton}
           onPress={() => router.replace('/auth/sign-up')}
         >
@@ -91,9 +92,7 @@ export default function TabLayout() {
     );
   }
 
-  if (!session) {
-    return null; // Ensures tabs don't render if no session
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <Tabs
@@ -105,19 +104,12 @@ export default function TabLayout() {
         headerStyle: { backgroundColor: '#1a1a1a' },
         headerTintColor: '#ffffff',
         headerRight: () => (
-          <TouchableOpacity onPress={async () => {
-            try {
-              await supabase.auth.signOut();
-              router.replace('/auth/sign-up');
-            } catch (err) {
-              console.error('Error signing out:', err);
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
-            }
-          }} style={{ marginRight: 15 }}>
+          <TouchableOpacity onPress={handleSignOut} style={{ marginRight: 15 }}>
             <Ionicons name="log-out" size={24} color="#ffffff" />
           </TouchableOpacity>
         ),
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{

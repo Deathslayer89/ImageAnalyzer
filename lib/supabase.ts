@@ -24,10 +24,7 @@ const supabaseAnonKey =
 
 // Log configuration for debugging (only in development)
 if (__DEV__) {
-  console.log('Supabase Configuration:');
-  console.log(`URL: ${supabaseUrl.substring(0, 15)}...`); // Partial URL for security
-  console.log(`Key defined: ${supabaseAnonKey !== 'your-anon-key'}`);
-
+ 
   if (supabaseUrl === 'https://your-project.supabase.co') {
     console.warn(
       '⚠️ Using fallback Supabase URL. Make sure environment variables are set correctly.'

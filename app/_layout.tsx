@@ -29,18 +29,12 @@ export default function RootLayout() {
   const [nestedRoute, setNestedRoute] = useState<LinkHref | null>(null); // For nested navigation like /auth/sign-up
 
   useEffect(() => {
-    // Log environment variables for debugging
-    console.log('Environment Variables:', {
-      supabaseUrl: (Constants.expoConfig?.extra as AppConfig)?.supabaseURL,
-      supabaseAnonKey: (Constants.expoConfig?.extra as AppConfig)?.supabaseAnonKey,
-      geminiApiKey: (Constants.expoConfig?.extra as AppConfig)?.geminiApiKey,
-    });
+    
 
     async function checkSession() {
       try {
         console.log('Initializing session check...');
         const { data, error: sessionError } = await (supabase as AppSupabaseClient).auth.getSession();
-        console.log('Session response:', { data, error: sessionError });
 
         if (sessionError) throw sessionError;
 
@@ -72,7 +66,6 @@ export default function RootLayout() {
     // Listen for auth state changes
     const { data: { subscription } } = (supabase as AppSupabaseClient).auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
-        console.log('Auth state changed:', session);
         setSession(session);
         if (session) {
           setInitialScreen('(tabs)');
