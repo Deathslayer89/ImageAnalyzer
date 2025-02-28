@@ -1,60 +1,103 @@
-// 1. Update app/_layout.tsx to add error handling for Supabase initialization
-
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
-import React from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 import { Text, View, StyleSheet, Alert } from 'react-native';
+import Constants from 'expo-constants';
+import { LinkHref } from 'expo-router';
+import { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
+
+// Prevent splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
+
+// Define the type for the Supabase client
+type AppSupabaseClient = SupabaseClient<any, 'public', any>;
+
+// Define the type for the extra config in Constants
+interface AppConfig {
+  supabaseURL?: string;
+  supabaseAnonKey?: string;
+  geminiApiKey?: string;
+}
 
 export default function RootLayout() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialScreen, setInitialScreen] = useState<string>('auth'); // Use screen name, not path
+  const [nestedRoute, setNestedRoute] = useState<LinkHref | null>(null); // For nested navigation like /auth/sign-up
 
   useEffect(() => {
+    // Log environment variables for debugging
+    console.log('Environment Variables:', {
+      supabaseUrl: (Constants.expoConfig?.extra as AppConfig)?.supabaseURL,
+      supabaseAnonKey: (Constants.expoConfig?.extra as AppConfig)?.supabaseAnonKey,
+      geminiApiKey: (Constants.expoConfig?.extra as AppConfig)?.geminiApiKey,
+    });
+
     async function checkSession() {
       try {
-        // Check initial session
-        const { data, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-        
+        console.log('Initializing session check...');
+        const { data, error: sessionError } = await (supabase as AppSupabaseClient).auth.getSession();
+        console.log('Session response:', { data, error: sessionError });
+
+        if (sessionError) throw sessionError;
+
         setSession(data.session);
-        
-        // Redirect based on session state
+
         if (data.session) {
-          router.replace('/(tabs)'); // Redirect to tabs if signed in
+          console.log('Session found, setting initial screen to (tabs)');
+          setInitialScreen('(tabs)'); // Use screen name
+          setNestedRoute(null); // No nested route needed for (tabs)
         } else {
-          router.replace('/auth/sign-up'); // Redirect to sign-up if not signed in
+          console.log('No session, setting initial screen to auth with nested route /auth/sign-up');
+          setInitialScreen('auth'); // Use screen name
+          setNestedRoute('/auth/sign-up' as LinkHref); // Navigate to sign-up within auth layout
         }
-      } catch (err: any) {
-        console.error('Error checking session:', err);
-        setError(err.message || 'Failed to connect to Supabase');
-        Alert.alert('Connection Error', 'Failed to connect to our services. Please check your internet connection and try again.');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Session check failed:', errorMessage);
+        setError(errorMessage || 'Failed to connect to Supabase');
+        Alert.alert('Connection Error', errorMessage || 'Failed to connect to services');
       } finally {
         setLoading(false);
+        console.log('Hiding splash screen');
+        await SplashScreen.hideAsync();
       }
     }
 
     checkSession();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      
-      if (session) {
-        router.replace('/(tabs)'); // Redirect to tabs if signed in
-      } else {
-        router.replace('/auth/sign-up'); // Redirect to sign-up if signed out
+    const { data: { subscription } } = (supabase as AppSupabaseClient).auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        console.log('Auth state changed:', session);
+        setSession(session);
+        if (session) {
+          setInitialScreen('(tabs)');
+          setNestedRoute(null);
+        } else {
+          setInitialScreen('auth');
+          setNestedRoute('/auth/sign-up' as LinkHref);
+        }
       }
-    });
+    );
 
-    // Cleanup subscription on unmount
-    return () => subscription.unsubscribe();
+    // Cleanup subscription
+    return () => {
+      console.log('Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // Perform nested navigation after the Stack mounts
+  useEffect(() => {
+    if (!loading && nestedRoute) {
+      console.log('Navigating to nested route:', nestedRoute);
+      router.replace(nestedRoute);
+    }
+  }, [loading, nestedRoute]);
 
   if (loading) {
     return (
@@ -73,14 +116,15 @@ export default function RootLayout() {
     );
   }
 
+  // Render the Stack navigator with the correct screen name as initialRouteName
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Auth routes */}
+      <Stack
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialScreen} // Use screen name: 'auth' or '(tabs)'
+      >
         <Stack.Screen name="auth" />
-        {/* Tabs routes */}
         <Stack.Screen name="(tabs)" />
-        {/* Not found route */}
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

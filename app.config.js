@@ -1,6 +1,4 @@
-// app.config.js
 module.exports = () => {
-  // Load .env file locally (optional, skipped in EAS cloud builds if not present)
   if (process.env.NODE_ENV !== "production") {
     require("dotenv").config();
   }
@@ -14,7 +12,7 @@ module.exports = () => {
       icon: "./assets/images/icon.png",
       scheme: "myapp",
       userInterfaceStyle: "automatic",
-      newArchEnabled: true,
+      newArchEnabled: false, // Disabled to test compatibility
       ios: {
         supportsTablet: true,
       },
@@ -45,7 +43,6 @@ module.exports = () => {
         eas: {
           projectId: "a687ad65-a539-4097-a882-e6b73f0e5b5c",
         },
-        // Use EXPO_PUBLIC_ variables with fallbacks for local dev
         geminiApiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY || "default-dev-key",
         supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "development",
         supabaseURL: process.env.EXPO_PUBLIC_SUPABASE_URL || "development",
@@ -55,6 +52,8 @@ module.exports = () => {
         adaptiveIcon: {
           foregroundImage: "./assets/images/icon.png",
         },
+        jsEngine: "hermes", // Explicitly enable Hermes
+        enableDangerousExperimentalLeanBuilds: false, // Avoid over-optimization
       },
     },
   };
