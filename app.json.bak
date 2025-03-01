@@ -40,7 +40,7 @@
       }
     },
     "android": {
-      "package": "com.deathslayer89.imageanalyzer"
+      "package": "com.deathslayer89.tara"
     }
   }
 }
