@@ -3,14 +3,24 @@ import { View, Modal, SafeAreaView, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import ViewShot from 'react-native-view-shot';
 
-import { ResultsList, ImageAnalysisResult } from '@/components/results/ResultsList';
-import { ResultsFilters, TimeFilter, SortOrder } from '@/components/results/ResultsFilters';
+import {
+  ResultsList,
+  ImageAnalysisResult,
+} from '@/components/results/ResultsList';
+import {
+  ResultsFilters,
+  TimeFilter,
+  SortOrder,
+} from '@/components/results/ResultsFilters';
 import { ResultDetail } from '@/components/results/ResultDetail';
 import { DateRangePicker } from '@/components/results/DateRangePicker';
 import { useImageAnalysis } from '@/hooks/useImageAnalysis';
 import { SearchBar } from '@/components/ui/SearchBar'; // Import the SearchBar component
+import { useAuth } from '@/context/AuthContext';
 
 export default function ResultsScreen() {
+  const user = useAuth();
+
   const {
     results,
     isLoading,
@@ -20,20 +30,29 @@ export default function ResultsScreen() {
     setTimeFilter,
     setSortOrder,
     setDateRange,
-    fetchResults
-  } = useImageAnalysis();
+    fetchResults,
+  } = useImageAnalysis(user);
 
-  const [selectedResult, setSelectedResult] = useState<ImageAnalysisResult | null>(null);
+  const [selectedResult, setSelectedResult] =
+    useState<ImageAnalysisResult | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [customFilterModalVisible, setCustomFilterModalVisible] = useState(false);
+  const [customFilterModalVisible, setCustomFilterModalVisible] =
+    useState(false);
   const [customFilterActive, setCustomFilterActive] = useState(false);
-  const [startDate, setStartDate] = useState(new Date(Date.now() - 24 * 60 * 60 * 1000)); // 24 hours ago
+  const [startDate, setStartDate] = useState(
+    new Date(Date.now() - 24 * 60 * 60 * 1000)
+  ); // 24 hours ago
   const [endDate, setEndDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState(''); // Add search query state
 
   const viewShotRef = useRef<ViewShot>(null);
 
-  // Fetch results on mount and when filters change
+  useEffect(() => {
+    if (user) {
+      fetchResults('');
+    }
+  }, [user, fetchResults]);
+  
   useEffect(() => {
     fetchResults(searchQuery); // Pass searchQuery to fetchResults
   }, [fetchResults, timeFilter, sortOrder, customFilterActive, searchQuery]);
@@ -46,7 +65,7 @@ export default function ResultsScreen() {
   const handleNextResult = () => {
     if (!selectedResult) return;
 
-    const currentIndex = results.findIndex(r => r.id === selectedResult.id);
+    const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
     if (currentIndex > 0) {
       setSelectedResult(results[currentIndex - 1]);
     }
@@ -55,7 +74,7 @@ export default function ResultsScreen() {
   const handlePreviousResult = () => {
     if (!selectedResult) return;
 
-    const currentIndex = results.findIndex(r => r.id === selectedResult.id);
+    const currentIndex = results.findIndex((r) => r.id === selectedResult.id);
     if (currentIndex < results.length - 1) {
       setSelectedResult(results[currentIndex + 1]);
     }
@@ -85,13 +104,13 @@ export default function ResultsScreen() {
   };
 
   const handleSearch = (text: string) => {
-    setSearchQuery(text); // Update search query state
+    setSearchQuery(text);
   };
 
   return (
     <SafeAreaView className="flex-1 bg-black">
       <StatusBar style="light" />
-      <SearchBar onSearch={handleSearch} /> {/* Add the SearchBar component */}
+      <SearchBar onSearch={handleSearch} />
       <ResultsFilters
         timeFilter={timeFilter}
         sortOrder={sortOrder}
@@ -122,8 +141,15 @@ export default function ResultsScreen() {
               onClose={() => setDetailModalVisible(false)}
               onNext={handleNextResult}
               onPrevious={handlePreviousResult}
-              hasNext={selectedResult && results.findIndex(r => r.id === selectedResult.id) > 0}
-              hasPrevious={selectedResult && results.findIndex(r => r.id === selectedResult.id) < results.length - 1}
+              hasNext={
+                selectedResult &&
+                results.findIndex((r) => r.id === selectedResult.id) > 0
+              }
+              hasPrevious={
+                selectedResult &&
+                results.findIndex((r) => r.id === selectedResult.id) <
+                  results.length - 1
+              }
             />
           )}
         </View>

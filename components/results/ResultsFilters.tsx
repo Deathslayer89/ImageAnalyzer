@@ -71,11 +71,6 @@ export function ResultsFilters({
           )}
         >
           <Ionicons name="calendar-outline" size={16} color={customFilterActive ? "white" : "#d1d5db"} />
-          {/* <Text className={cn(
-            "text-sm ml-2 font-medium",
-            customFilterActive ? "text-white" : "text-gray-300"
-          )}>
-          </Text> */}
         </TouchableOpacity>
 
         <View className="h-6 border-l border-gray-700 mx-2" />
