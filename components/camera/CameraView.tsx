@@ -1,19 +1,17 @@
 // components/camera/CameraView.tsx
-import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { CameraView as ExpoCameraView, CameraType } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 
-import { cn } from '@/lib/utils';
-
 interface CameraViewProps {
-  onCapture: (uri: string) => void; // Changed from Promise<void> to void
-  onPickImage: () => void; // Changed from Promise<void> to void
+  onCapture: (uri: string) => void;
+  onPickImage: () => void;
   isProcessing: boolean;
   facing: CameraType;
   onToggleFacing: () => void;
-  onStartListening?: () => void; // Changed from Promise<void> to void
-  onStopListening?: () => void; // Changed from Promise<void> to void
+  onStartListening?: () => void;
+  onStopListening?: () => void;
   isListening?: boolean;
 }
 
@@ -37,21 +35,109 @@ export function CameraViewComponent({
   };
 
   return (
-    <View className="flex-1 bg-black h-full">
-      <ExpoCameraView ref={cameraRef} className="flex-1 h-full" facing={facing}>
-        <Text className="text-white">Camera Preview</Text>
-        <View className="absolute bottom-6 w-full flex-row justify-center space-x-5 z-10">
-          <TouchableOpacity onPress={handleCapture} className="w-16 h-16 bg-red-500 rounded-full items-center justify-center">
-            <Ionicons name="camera-outline" size={28} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onToggleFacing} className="w-16 h-16 bg-blue-500 rounded-full items-center justify-center">
-            <Ionicons name="camera-reverse-outline" size={28} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onPickImage} className="w-16 h-16 bg-green-500 rounded-full items-center justify-center">
-            <Ionicons name="image-outline" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-      </ExpoCameraView>
+    <View style={styles.container}>
+      <ExpoCameraView 
+        ref={cameraRef} 
+        style={styles.camera}
+        facing={facing}
+      />
+      <View style={styles.controls}>
+        <TouchableOpacity 
+          onPress={onPickImage} 
+          style={[styles.button, styles.galleryButton]}
+        >
+          <Ionicons name="image-outline" size={28} color="white" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={handleCapture} 
+          style={[styles.button, styles.captureButton]}
+          disabled={isProcessing}
+        >
+          <Ionicons name="camera-outline" size={28} color="white" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={onToggleFacing} 
+          style={[styles.button, styles.flipButton]}
+        >
+          <Ionicons name="camera-reverse-outline" size={28} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Voice listening button */}
+      {onStartListening && onStopListening && (
+        <TouchableOpacity 
+          onPress={isListening ? onStopListening : onStartListening}
+          style={[
+            styles.micButton,
+            isListening ? styles.micButtonActive : null
+          ]}
+        >
+          <Ionicons 
+            name={isListening ? "mic" : "mic-outline"} 
+            size={24} 
+            color="white" 
+          />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
+
+const { width: screenWidth } = Dimensions.get('window');
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  camera: {
+    flex: 1,
+    width: screenWidth,
+  },
+  controls: {
+    position: 'absolute',
+    bottom: 30,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  button: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 15,
+  },
+  captureButton: {
+    backgroundColor: '#ef4444',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+  },
+  flipButton: {
+    backgroundColor: '#3b82f6',
+  },
+  galleryButton: {
+    backgroundColor: '#22c55e',
+  },
+  micButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#9333ea',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: '#f43f5e',
+  },
+});

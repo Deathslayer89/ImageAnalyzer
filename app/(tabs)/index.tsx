@@ -1,7 +1,6 @@
 // app/(tabs)/index.tsx
-import React, { useEffect, useState } from 'react';
-import { View, Text, Alert } from 'react-native';
-import { router } from 'expo-router';
+import React from 'react';
+import { View, Alert, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { CameraViewComponent } from '@/components/camera/CameraView';
@@ -25,10 +24,6 @@ export default function CameraScreen() {
 
   const { analyzeAndSaveImage } = useImageAnalysis();
 
-  console.log('Permission:', permission);
-  console.log('Facing:', facing);
-  console.log('Is Processing:', isProcessing);
-
   const handleCapture = (uri: string) => {
     processImage(uri)
       .then(processedUri => analyzeAndSaveImage(processedUri))
@@ -44,7 +39,7 @@ export default function CameraScreen() {
   }
 
   return (
-    <View className="flex-1">
+    <View style={styles.container}>
       <StatusBar style="light" />
       <CameraViewComponent
         facing={facing}
@@ -59,3 +54,10 @@ export default function CameraScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+});
