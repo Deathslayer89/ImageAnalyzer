@@ -27,9 +27,22 @@ export default function CameraScreen() {
   const { analyzeAndSaveImage } = useImageAnalysis(user);
 
   const handleCapture = (uri: string) => {
+    // If triggered by voice command, uri will be "command_triggered"
+    // in which case the camera component will handle the capture
+    if (uri === "command_triggered") {
+      return;
+    }
+    
     processImage(uri)
       .then(processedUri => analyzeAndSaveImage(processedUri))
       .catch(error => Alert.alert('Error', 'Failed to process image.', [{ text: 'OK' }]));
+  };
+
+  const handlePickImage = async () => {
+    const uri = await pickImage();
+    if (uri) {
+      handleCapture(uri);
+    }
   };
 
   if (!permission) {
@@ -47,7 +60,7 @@ export default function CameraScreen() {
         facing={facing}
         onToggleFacing={toggleCameraFacing}
         onCapture={handleCapture}
-        onPickImage={pickImage}
+        onPickImage={handlePickImage}
         isProcessing={isProcessing}
         onStartListening={startListening}
         onStopListening={stopListening}

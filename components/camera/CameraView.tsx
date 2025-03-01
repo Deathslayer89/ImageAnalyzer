@@ -1,4 +1,3 @@
-// components/camera/CameraView.tsx
 import React, { useRef } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { CameraView as ExpoCameraView, CameraType } from 'expo-camera';
@@ -10,9 +9,6 @@ interface CameraViewProps {
   isProcessing: boolean;
   facing: CameraType;
   onToggleFacing: () => void;
-  onStartListening?: () => void;
-  onStopListening?: () => void;
-  isListening?: boolean;
 }
 
 export function CameraViewComponent({
@@ -21,15 +17,18 @@ export function CameraViewComponent({
   isProcessing,
   facing,
   onToggleFacing,
-  onStartListening,
-  onStopListening,
-  isListening = false,
 }: CameraViewProps) {
   const cameraRef = useRef<ExpoCameraView | null>(null);
 
   const handleCapture = () => {
     if (isProcessing || !cameraRef.current) return;
-    cameraRef.current.takePictureAsync({ quality: 0.7, base64: true })
+    cameraRef.current.takePictureAsync({ 
+      quality: 0.7, 
+      base64: true,
+      exif: false,
+      skipProcessing: true,
+      mute: true // Ensure the camera is silent when taking pictures
+    })
       .then(photo => photo?.uri && onCapture(photo.uri))
       .catch(error => console.error('Capture Error:', error));
   };
@@ -42,12 +41,14 @@ export function CameraViewComponent({
         facing={facing}
         audio={false} // Disable camera sound
       />
+
+      {/* Camera controls at the bottom */}
       <View style={styles.controls}>
         <TouchableOpacity
           onPress={onPickImage}
           style={styles.button}
         >
-          <Ionicons name="image-outline" size={28} color="white" />
+          <Ionicons name="image-outline" size={24} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -55,28 +56,15 @@ export function CameraViewComponent({
           style={styles.button}
           disabled={isProcessing}
         >
-          <Ionicons name="camera-outline" size={28} color="white" />
+          <Ionicons name="camera-outline" size={24} color="white" />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onToggleFacing}
           style={styles.button}
         >
-          <Ionicons name="camera-reverse-outline" size={28} color="white" />
+          <Ionicons name="camera-reverse-outline" size={24} color="white" />
         </TouchableOpacity>
-
-        {onStartListening && onStopListening && (
-          <TouchableOpacity
-            onPress={isListening ? onStopListening : onStartListening}
-            style={styles.button}
-          >
-            <Ionicons
-              name={isListening ? "mic-off-outline" : "mic-outline"}
-              size={24}
-              color="white"
-            />
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -99,17 +87,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
   button: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Darker background for better contrast
-  },
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  }
 });
