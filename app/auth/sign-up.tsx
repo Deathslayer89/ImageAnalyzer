@@ -1,129 +1,34 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { router } from 'expo-router';
+// app/auth/sign-up.tsx
+import React from 'react';
+import { View, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useAuth } from '@/context/AuthContext';
+import { AuthForm } from '@/components/auth/AuthForm';
 
 export default function SignUpScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const signUp = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      
-      router.replace("/auth/verify"); // Absolute path, unchanged
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+  const { signUp, error, clearError, isLoading } = useAuth();
+  
+  const handleSignUp = (data: { email: string; password: string }) => {
+    // Non-async wrapper function
+    signUp(data.email, data.password).catch((error) => {
+      // Error already handled in auth context
+    });
   };
-
+  
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      
-      {error && (
-        <Text style={styles.error}>{error}</Text>
-      )}
-
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#666"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#666"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-
-      <TouchableOpacity 
-        style={[styles.button, loading && styles.buttonDisabled]} 
-        onPress={signUp}
-        disabled={loading}
+    <SafeAreaView className="flex-1 bg-black">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign Up</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity 
-        style={styles.link}
-        onPress={() => router.replace("/auth/sign-in")} // Changed to absolute path and replace
-      >
-        <Text style={styles.linkText}>Already have an account? Sign In</Text>
-      </TouchableOpacity>
-    </View>
+        <View className="flex-1 justify-center p-6">
+          <AuthForm
+            type="sign-up"
+            onSubmit={handleSignUp}
+            isLoading={isLoading}
+            error={error}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
-
-// Styles remain unchanged
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    color: '#fff',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    color: '#fff',
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  link: {
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  linkText: {
-    color: '#2563eb',
-    fontSize: 14,
-  },
-  error: {
-    color: '#ef4444',
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-});

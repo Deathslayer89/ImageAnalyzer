@@ -1,4 +1,3 @@
-// lib/supabase.ts
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
@@ -12,34 +11,35 @@ const ExpoSecureStoreAdapter = {
 };
 
 // Access configuration values with fallbacks
-const supabaseUrl =
-  Constants.expoConfig?.extra?.supabaseURL || // Note: Match the key case from app.config.js
-  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+const supabaseUrl = 
+  Constants.expoConfig?.extra?.supabaseURL || 
+  process.env.EXPO_PUBLIC_SUPABASE_URL || 
   'https://your-project.supabase.co';
 
-const supabaseAnonKey =
-  Constants.expoConfig?.extra?.supabaseAnonKey || // Note: Match the key case from app.config.js
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+const supabaseAnonKey = 
+  Constants.expoConfig?.extra?.supabaseAnonKey || 
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
   'your-anon-key';
-
-// Log configuration for debugging (only in development)
-if (__DEV__) {
- 
-  if (supabaseUrl === 'https://your-project.supabase.co') {
-    console.warn(
-      '⚠️ Using fallback Supabase URL. Make sure environment variables are set correctly.'
-    );
-  }
-  if (supabaseAnonKey === 'your-anon-key') {
-    console.warn(
-      '⚠️ Using fallback Supabase anon key. Make sure environment variables are set correctly.'
-    );
-  }
-}
 
 // Initialize and export the Supabase client
 let supabase;
+
 try {
+  // Log configuration in development
+  if (__DEV__) {
+    if (supabaseUrl === 'https://your-project.supabase.co') {
+      console.warn(
+        '⚠️ Using fallback Supabase URL. Make sure environment variables are set correctly.'
+      );
+    }
+    if (supabaseAnonKey === 'your-anon-key') {
+      console.warn(
+        '⚠️ Using fallback Supabase anon key. Make sure environment variables are set correctly.'
+      );
+    }
+  }
+
+  // Create Supabase client
   supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       storage: ExpoSecureStoreAdapter,
