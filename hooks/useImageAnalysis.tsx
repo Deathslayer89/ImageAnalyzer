@@ -1,9 +1,12 @@
+// hooks/useImageAnalysis.tsx
 import { useState, useCallback } from 'react';
 import * as FileSystem from 'expo-file-system';
 import { toByteArray } from 'base64-js';
 import { supabase } from '@/lib/supabase';
 import { analyzeImage } from '@/lib/gemini';
 import { router } from 'expo-router';
+import { User } from '@supabase/supabase-js';
+import { sub } from 'date-fns';
 
 export interface ImageAnalysisResult {
   id: string;
@@ -16,13 +19,14 @@ export interface ImageAnalysisResult {
 export type TimeFilter = '3h' | '24h' | '7d' | 'all' | 'custom';
 export type SortOrder = 'latest' | 'oldest';
 
-export function useImageAnalysis() {
+export function useImageAnalysis(user: User | null = null) {
   const [results, setResults] = useState<ImageAnalysisResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('3h');
   const [sortOrder, setSortOrder] = useState<SortOrder>('latest');
-  const [customDateRange, setCustomDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
+  const [dateRange, setDateRange] = useState<{ startDate: Date; endDate: Date } | null>(null);
+  const [customFilterActive, setCustomFilterActive] = useState(false);
 
   // Upload image to Supabase storage
   const uploadImageToSupabase = async (uri: string) => {
@@ -30,10 +34,10 @@ export function useImageAnalysis() {
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      
+
       const imageData = toByteArray(base64);
       const filename = `image_${Date.now()}.jpg`;
-      
+
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from('images')
@@ -43,7 +47,6 @@ export function useImageAnalysis() {
         });
 
       if (uploadError) throw uploadError;
-
       const { data: { publicUrl } } = supabase
         .storage
         .from('images')
@@ -60,11 +63,11 @@ export function useImageAnalysis() {
   const analyzeAndSaveImage = async (uri: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Upload image to get a public URL
       const publicUrl = await uploadImageToSupabase(uri);
-      
+
       // Create initial record with processing status
       const { data: initialData, error: initialError } = await supabase
         .from("image_analysis")
@@ -74,16 +77,17 @@ export function useImageAnalysis() {
             analysis: "Processing image...",
             status: "processing",
             created_at: new Date().toISOString(),
+            user_id: user?.id,
           },
         ])
         .select();
 
       if (initialError) throw initialError;
-      
+
       try {
         // Perform analysis with Gemini AI
         const analysis = await analyzeImage(uri);
-        
+
         // Update record with analysis results
         const { data, error } = await supabase
           .from("image_analysis")
@@ -95,7 +99,7 @@ export function useImageAnalysis() {
           .select();
 
         if (error) throw error;
-        
+
         // Navigate to results screen
         router.push('/results');
         return data[0];
@@ -121,61 +125,60 @@ export function useImageAnalysis() {
   };
 
   // Fetch analysis results with filters
-  const fetchResults = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
+  const fetchResults = useCallback(
+    async (searchQuery: string = '') => {
+      if (!user) return;
+
+      setIsLoading(true);
+      setError(null);
+
       let query = supabase
         .from('image_analysis')
         .select('*')
-        .order('created_at', { ascending: sortOrder === 'oldest' });
+        .eq('user_id', user.id);
 
-      // Apply time filters
-      if (timeFilter !== 'all' && timeFilter !== 'custom') {
-        const now = new Date();
-        let hoursAgo: number;
-        
-        switch (timeFilter) {
-          case '3h':
-            hoursAgo = 3;
-            break;
-          case '24h':
-            hoursAgo = 24;
-            break;
-          case '7d':
-            hoursAgo = 24 * 7;
-            break;
-          default:
-            hoursAgo = 3;
+      if (searchQuery) {
+        // If there's a search query, bypass filters and search analysis field
+        query = query.ilike('analysis', `%${searchQuery}%`);
+      } else {
+        // Apply time filter
+        if (timeFilter !== 'all' && timeFilter !== 'custom') {
+          const fromDate = sub(new Date(), {
+            hours: timeFilter === '3h' ? 3 : 0,
+            days: timeFilter === '24h' ? 1 : timeFilter === '7d' ? 7 : 0,
+          });
+          query = query.gte('created_at', fromDate.toISOString());
         }
-        
-        const startDate = new Date(now.getTime() - hoursAgo * 60 * 60 * 1000);
-        query = query.gte('created_at', startDate.toISOString());
-      } else if (timeFilter === 'custom' && customDateRange) {
+
         // Apply custom date range
-        query = query
-          .gte('created_at', customDateRange.startDate.toISOString())
-          .lte('created_at', customDateRange.endDate.toISOString());
+        if (customFilterActive && dateRange) {
+          query = query.gte('created_at', dateRange.startDate.toISOString());
+          query = query.lte('created_at', dateRange.endDate.toISOString());
+        }
+
+        // Apply sort order
+        query = query.order('created_at', { ascending: sortOrder === 'oldest' });
       }
 
-      const { data, error } = await query.limit(50);
-      
-      if (error) throw error;
-      
-      setResults(data || []);
-    } catch (error) {
-      console.error('Error fetching results:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch results');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [timeFilter, sortOrder, customDateRange]);
+      const { data, error } = await query;
 
-  // Set custom date range and apply 'custom' filter
-  const setDateRange = (startDate: Date, endDate: Date) => {
-    setCustomDateRange({ startDate, endDate });
+      if (error) {
+        console.error('Error fetching results:', error);
+        setError(error.message);
+      } else {
+        setResults(data || []);
+      }
+
+      setIsLoading(false);
+    },
+    [user, timeFilter, sortOrder, customFilterActive, dateRange]
+  );
+
+  // Set custom date range and activate custom filter
+  const handleSetDateRange = (startDate: Date, endDate: Date) => {
+    setDateRange({ startDate, endDate });
     setTimeFilter('custom');
+    setCustomFilterActive(true);
   };
 
   return {
@@ -184,10 +187,11 @@ export function useImageAnalysis() {
     error,
     timeFilter,
     sortOrder,
-    customDateRange,
+    dateRange,
+    customFilterActive,
     setTimeFilter,
     setSortOrder,
-    setDateRange,
+    setDateRange: handleSetDateRange,
     fetchResults,
     analyzeAndSaveImage,
   };

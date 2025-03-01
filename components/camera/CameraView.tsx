@@ -36,51 +36,48 @@ export function CameraViewComponent({
 
   return (
     <View style={styles.container}>
-      <ExpoCameraView 
-        ref={cameraRef} 
+      <ExpoCameraView
+        ref={cameraRef}
         style={styles.camera}
         facing={facing}
+        audio={false} // Disable camera sound
       />
       <View style={styles.controls}>
-        <TouchableOpacity 
-          onPress={onPickImage} 
-          style={[styles.button, styles.galleryButton]}
+        <TouchableOpacity
+          onPress={onPickImage}
+          style={styles.button}
         >
           <Ionicons name="image-outline" size={28} color="white" />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          onPress={handleCapture} 
-          style={[styles.button, styles.captureButton]}
+
+        <TouchableOpacity
+          onPress={handleCapture}
+          style={styles.button}
           disabled={isProcessing}
         >
           <Ionicons name="camera-outline" size={28} color="white" />
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          onPress={onToggleFacing} 
-          style={[styles.button, styles.flipButton]}
+
+        <TouchableOpacity
+          onPress={onToggleFacing}
+          style={styles.button}
         >
           <Ionicons name="camera-reverse-outline" size={28} color="white" />
         </TouchableOpacity>
-      </View>
 
-      {/* Voice listening button */}
-      {onStartListening && onStopListening && (
-        <TouchableOpacity 
-          onPress={isListening ? onStopListening : onStartListening}
-          style={[
-            styles.micButton,
-            isListening ? styles.micButtonActive : null
-          ]}
-        >
-          <Ionicons 
-            name={isListening ? "mic" : "mic-outline"} 
-            size={24} 
-            color="white" 
-          />
-        </TouchableOpacity>
-      )}
+        {onStartListening && onStopListening && (
+          <TouchableOpacity
+            onPress={isListening ? onStopListening : onStartListening}
+            style={styles.button}
+          >
+            <Ionicons
+              name={isListening ? "mic-off-outline" : "mic-outline"}
+              size={24}
+              color="white"
+            />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -113,31 +110,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 15,
-  },
-  captureButton: {
-    backgroundColor: '#ef4444',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-  },
-  flipButton: {
-    backgroundColor: '#3b82f6',
-  },
-  galleryButton: {
-    backgroundColor: '#22c55e',
-  },
-  micButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#9333ea',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micButtonActive: {
-    backgroundColor: '#f43f5e',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Darker background for better contrast
   },
 });

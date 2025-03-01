@@ -7,8 +7,10 @@ import { CameraViewComponent } from '@/components/camera/CameraView';
 import { CameraPermission } from '@/components/camera/CameraPermission';
 import { useCamera } from '@/hooks/useCamera';
 import { useImageAnalysis } from '@/hooks/useImageAnalysis';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CameraScreen() {
+  const { user } = useAuth();
   const {
     permission,
     requestPermission,
@@ -22,7 +24,7 @@ export default function CameraScreen() {
     stopListening,
   } = useCamera();
 
-  const { analyzeAndSaveImage } = useImageAnalysis();
+  const { analyzeAndSaveImage } = useImageAnalysis(user);
 
   const handleCapture = (uri: string) => {
     processImage(uri)

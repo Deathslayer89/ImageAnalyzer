@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { cn } from '@/lib/utils';
 
-export type TimeFilter = '3h' | '24h' | '7d' | 'all' | 'custom';
+export type TimeFilter = '3h' | '24h' | '7d' | 'custom';
 export type SortOrder = 'latest' | 'oldest';
 
 interface ResultsFiltersProps {
@@ -28,7 +28,6 @@ export function ResultsFilters({
     { value: '3h', label: '3h' },
     { value: '24h', label: '24h' },
     { value: '7d', label: '7d' },
-    { value: 'all', label: 'All' },
   ];
 
   const toggleSortOrder = () => {
@@ -37,26 +36,26 @@ export function ResultsFilters({
 
   return (
     <View className="bg-gray-900 p-3">
-      <ScrollView 
-        horizontal 
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerClassName="flex-row items-center space-x-2"
+        contentContainerClassName="flex-row items-center gap-x-3"
       >
         {timeFilterOptions.map((option) => (
           <TouchableOpacity
             key={option.value}
             onPress={() => onTimeFilterChange(option.value)}
             className={cn(
-              "px-3 py-2 rounded-md",
+              "px-4 py-2.5 rounded-lg",
               timeFilter === option.value && !customFilterActive
                 ? "bg-blue-600"
                 : "bg-gray-800"
             )}
           >
             <Text className={cn(
-              "text-sm",
+              "text-sm font-medium",
               timeFilter === option.value && !customFilterActive
-                ? "text-white font-medium"
+                ? "text-white"
                 : "text-gray-300"
             )}>
               {option.label}
@@ -67,34 +66,33 @@ export function ResultsFilters({
         <TouchableOpacity
           onPress={onOpenCustomFilter}
           className={cn(
-            "px-3 py-2 rounded-md flex-row items-center",
+            "px-4 py-2.5 rounded-lg flex-row items-center",
             customFilterActive ? "bg-blue-600" : "bg-gray-800"
           )}
         >
           <Ionicons name="calendar-outline" size={16} color={customFilterActive ? "white" : "#d1d5db"} />
-          <Text className={cn(
-            "text-sm ml-1",
-            customFilterActive ? "text-white font-medium" : "text-gray-300"
+          {/* <Text className={cn(
+            "text-sm ml-2 font-medium",
+            customFilterActive ? "text-white" : "text-gray-300"
           )}>
-            Custom
-          </Text>
+          </Text> */}
         </TouchableOpacity>
 
-        <View className="h-6 border-l border-gray-700 mx-1" />
+        <View className="h-6 border-l border-gray-700 mx-2" />
 
         <TouchableOpacity
           onPress={toggleSortOrder}
-          className="px-3 py-2 rounded-md bg-gray-800 flex-row items-center"
+          className="px-4 py-2.5 rounded-lg bg-gray-800 flex-row items-center"
         >
           {sortOrder === 'latest' ? (
             <>
               <Ionicons name="arrow-down-outline" size={16} color="#d1d5db" />
-              <Text className="text-sm ml-1 text-gray-300">Latest</Text>
+              <Text className="text-sm ml-2 text-gray-300">Latest</Text>
             </>
           ) : (
             <>
               <Ionicons name="arrow-up-outline" size={16} color="#d1d5db" />
-              <Text className="text-sm ml-1 text-gray-300">Oldest</Text>
+              <Text className="text-sm ml-2 text-gray-300">Oldest</Text>
             </>
           )}
         </TouchableOpacity>

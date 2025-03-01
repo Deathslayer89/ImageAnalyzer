@@ -1,6 +1,5 @@
-// app/(tabs)/results.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Modal, SafeAreaView } from 'react-native';
+import { View, Modal, SafeAreaView, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import ViewShot from 'react-native-view-shot';
 
@@ -9,6 +8,7 @@ import { ResultsFilters, TimeFilter, SortOrder } from '@/components/results/Resu
 import { ResultDetail } from '@/components/results/ResultDetail';
 import { DateRangePicker } from '@/components/results/DateRangePicker';
 import { useImageAnalysis } from '@/hooks/useImageAnalysis';
+import { SearchBar } from '@/components/ui/SearchBar'; // Import the SearchBar component
 
 export default function ResultsScreen() {
   const {
@@ -29,13 +29,14 @@ export default function ResultsScreen() {
   const [customFilterActive, setCustomFilterActive] = useState(false);
   const [startDate, setStartDate] = useState(new Date(Date.now() - 24 * 60 * 60 * 1000)); // 24 hours ago
   const [endDate, setEndDate] = useState(new Date());
-  
+  const [searchQuery, setSearchQuery] = useState(''); // Add search query state
+
   const viewShotRef = useRef<ViewShot>(null);
 
   // Fetch results on mount and when filters change
   useEffect(() => {
-    fetchResults();
-  }, [fetchResults, timeFilter, sortOrder, customFilterActive]);
+    fetchResults(searchQuery); // Pass searchQuery to fetchResults
+  }, [fetchResults, timeFilter, sortOrder, customFilterActive, searchQuery]);
 
   const handleSelectResult = (result: ImageAnalysisResult) => {
     setSelectedResult(result);
@@ -44,7 +45,7 @@ export default function ResultsScreen() {
 
   const handleNextResult = () => {
     if (!selectedResult) return;
-    
+
     const currentIndex = results.findIndex(r => r.id === selectedResult.id);
     if (currentIndex > 0) {
       setSelectedResult(results[currentIndex - 1]);
@@ -53,7 +54,7 @@ export default function ResultsScreen() {
 
   const handlePreviousResult = () => {
     if (!selectedResult) return;
-    
+
     const currentIndex = results.findIndex(r => r.id === selectedResult.id);
     if (currentIndex < results.length - 1) {
       setSelectedResult(results[currentIndex + 1]);
@@ -83,10 +84,14 @@ export default function ResultsScreen() {
     setTimeFilter(filter);
   };
 
+  const handleSearch = (text: string) => {
+    setSearchQuery(text); // Update search query state
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-black">
       <StatusBar style="light" />
-      
+      <SearchBar onSearch={handleSearch} /> {/* Add the SearchBar component */}
       <ResultsFilters
         timeFilter={timeFilter}
         sortOrder={sortOrder}
@@ -95,14 +100,13 @@ export default function ResultsScreen() {
         onOpenCustomFilter={handleOpenCustomFilter}
         customFilterActive={customFilterActive}
       />
-      
       <ResultsList
         results={results}
         isLoading={isLoading}
         onRefresh={fetchResults}
         onSelectResult={handleSelectResult}
       />
-      
+
       {/* Result Detail Modal */}
       <Modal
         visible={detailModalVisible}
@@ -124,7 +128,7 @@ export default function ResultsScreen() {
           )}
         </View>
       </Modal>
-      
+
       {/* Custom Date Filter Modal */}
       <Modal
         visible={customFilterModalVisible}
