@@ -6,11 +6,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabsLayout() {
-  const { signOut } = useAuth();
+  const { signOut, isLoading } = useAuth();
 
   const handleSignOut = async () => {
+    if (isLoading) return;
+    
     try {
       await signOut();
+      // Don't navigate here - the root layout will handle navigation
     } catch (error) {
       // Error handling done in Auth context
     }
@@ -33,7 +36,11 @@ export default function TabsLayout() {
         },
         headerTintColor: '#ffffff',
         headerRight: () => (
-          <TouchableOpacity onPress={handleSignOut} className="mx-4">
+          <TouchableOpacity 
+            onPress={handleSignOut} 
+            className="mx-4"
+            disabled={isLoading}
+          >
             <Ionicons name="log-out-outline" size={22} color="#ffffff" />
           </TouchableOpacity>
         ),

@@ -3,14 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-// Define the ExpoSecureStoreAdapter for Supabase auth storage
 const ExpoSecureStoreAdapter = {
   getItem: (key: string) => SecureStore.getItemAsync(key),
   setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-// Access configuration values with fallbacks
 const supabaseUrl = 
   Constants.expoConfig?.extra?.supabaseURL || 
   process.env.EXPO_PUBLIC_SUPABASE_URL || 
@@ -21,11 +19,9 @@ const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
   'your-anon-key';
 
-// Initialize and export the Supabase client
 let supabase;
 
 try {
-  // Log configuration in development
   if (__DEV__) {
     if (supabaseUrl === 'https://your-project.supabase.co') {
       console.warn(
@@ -39,13 +35,12 @@ try {
     }
   }
 
-  // Create Supabase client
   supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       storage: ExpoSecureStoreAdapter,
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: true, // Enable this to handle deep links properly
     },
   });
 } catch (error) {

@@ -1,5 +1,4 @@
 // app/auth/sign-up.tsx
-import React from 'react';
 import { View, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import { AuthForm } from '@/components/auth/AuthForm';

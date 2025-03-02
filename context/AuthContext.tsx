@@ -1,9 +1,9 @@
 // context/AuthContext.tsx
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import Toast from 'react-native-toast-message'; // Import Toast
 
 interface AuthContextType {
   session: Session | null;
@@ -45,24 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeSession();
   }, []);
 
-  // Handle navigation based on session changes
-  useEffect(() => {
-    if (!isLoading) { // Only navigate after loading is complete
-      if (session) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/auth/sign-in');
-      }
-    }
-  }, [session, isLoading]);
-
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, currentSession: Session | null) => {
         console.log(`Auth event: ${event}`);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        // Navigation is now handled in the useEffect above
       }
     );
     return () => subscription.unsubscribe();
@@ -74,11 +62,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      router.replace('/auth/verify');
+      Toast.show({
+        type: 'success',
+        text1: 'Sign Up Successful',
+        text2: 'Please check your email to verify your account.',
+        position: 'top',
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign up';
       console.error('Sign up error:', errorMessage);
       setError(errorMessage);
+      Toast.show({
+        type: 'error',
+        text1: 'Sign Up Error',
+        text2: errorMessage,
+        position: 'top',
+      });
       throw err;
     } finally {
       setIsLoading(false);
@@ -90,12 +89,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) {
+        if (error.message === 'Invalid login credentials') {
+          Toast.show({
+            type: 'error',
+            text1: 'Login Failed',
+            text2: 'Invalid email or password. Please try again.',
+            position: 'top',
+          });
+          return; // Exit without throwing
+        } else {
+          throw error; // Throw other errors to be caught below
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign in';
       console.error('Sign in error:', errorMessage);
       setError(errorMessage);
-      throw err;
+      Toast.show({
+        type: 'error',
+        text1: 'Login Error',
+        text2: errorMessage,
+        position: 'top',
+      });
     } finally {
       setIsLoading(false);
     }

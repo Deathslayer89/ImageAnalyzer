@@ -10,7 +10,7 @@ module.exports = () => {
       version: '1.0.0',
       orientation: 'portrait',
       icon: './assets/images/icon.png',
-      scheme: 'myapp',
+      scheme: 'tara',
       userInterfaceStyle: 'automatic',
       newArchEnabled: false, // Disabled to test compatibility
       ios: {

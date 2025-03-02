@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 import { router } from 'expo-router';
-import {Ionicons} from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../ui/Button';
 import { Card, CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from '../ui/Card';
 
@@ -10,12 +10,17 @@ interface VerifyEmailProps {
 }
 
 export function VerifyEmail({ email }: VerifyEmailProps) {
+  const handleOpenEmailApp = () => {
+    // Attempt to open email app
+    Linking.openURL('mailto:');
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
         <View className="items-center mb-4">
           <View className="bg-blue-600/20 w-16 h-16 rounded-full items-center justify-center mb-2">
-          <Ionicons name="mail-outline" size={32} color="#3b82f6" />
+            <Ionicons name="mail-outline" size={32} color="#3b82f6" />
           </View>
         </View>
         <CardTitle className="text-center">Check Your Email</CardTitle>
@@ -30,9 +35,21 @@ export function VerifyEmail({ email }: VerifyEmailProps) {
           Please check your inbox and click the verification link to complete your registration.
           If you don't see it, check your spam folder.
         </Text>
+        
+        <Text className="text-gray-400 text-center text-sm mb-6">
+          After verifying, you can come back to the app and sign in with your email and password.
+        </Text>
       </CardContent>
       
       <CardFooter className="flex-col">
+        <Button
+          className="w-full mb-2"
+          onPress={handleOpenEmailApp}
+          leftIcon={<Ionicons name="mail-outline" size={18} color="white" />}
+        >
+          Open Email App
+        </Button>
+        
         <Button
           variant="outline"
           className="w-full mb-2"
